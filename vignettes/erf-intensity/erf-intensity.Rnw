@@ -1,0 +1,1337 @@
+\documentclass[acp,manuscript]{copernicus}
+\usepackage[textsize=11pt]{todonotes}
+\usepackage{upgreek}
+\usepackage{soul}
+
+\newcommand{\commentVerbose}[3]{ \textbf{
+    \textcolor{blue}{$\Big||$}%
+    \textcolor{purple}{{#2}: {#1}}%
+    \textcolor{blue}{$|$}%
+    \textcolor{magenta}{{#3}}%
+    \textcolor{blue}{$|\Big|$}}}
+\newcommand{\commentSilent}[3]{}
+%\def\comment{\commentVerbose}
+\def\comment{\commentSilent}
+\newcommand\phl[1]{#1}
+\newcommand{\jmcomment}[1]{\comment{#1}{\ensuremath{j_\mu}}{}}
+\newcommand{\jmcommentv}[1]{\commentVerbose{#1}{\ensuremath{j_\mu}}{}}
+
+\date{\today}
+\runningauthor{M\"ULMENST\"ADT ET AL.}
+
+\runningtitle{Importance of precipitation intensity in models and observations}
+
+%Corresponding author mailing address and e-mail address:
+% \authoraddr{Correspondence to: J.~M\"ulmenst\"adt,
+%   johannes.muelmenstaedt@uni-leipzig.de}
+
+\usepackage{newtxmath}
+
+\newcommand\nd{\ensuremath{N_d}}
+\newcommand\cdnc{\nd}
+\newcommand\lwp{\ensuremath{\mathcal L}}
+\newcommand\fc{\ensuremath{f_c}}
+\newcommand\cf{\fc}
+\newcommand\re{\ensuremath{r_e}}
+\newcommand\ql{\ensuremath{q_l}}
+\newcommand\qi{\ensuremath{q_i}}
+
+\newcommand\erf{\ensuremath{\text{ERF}}}
+\newcommand\erfaci{\ensuremath{\text{ERF}_\text{aci}}}
+\newcommand\erfari{\ensuremath{\text{ERF}_\text{ari}}}
+\newcommand\rfaci{\ensuremath{\text{RF}_\text{aci}}}
+\newcommand\rfari{\ensuremath{\text{RF}_\text{ari}}}
+
+\newcommand\lon{\ensuremath{\lambda}}
+\newcommand\lat{\ensuremath{\phi}}
+
+%% \usepackage{helvet}
+%% \usepackage{sansmath}
+%% \usepackage{etoolbox}
+%% \AtBeginEnvironment{tikzpicture}{
+%%   \sansmath \sf
+%% }
+%% \AtEndEnvironment{tikzpicture}{
+%%   \unsansmath 
+%% }
+
+%% \usepackage[textsize=11pt]{todonotes}
+%% \usepackage{wasysym}
+%% \newcommand{\commentjm}[1]{\todo[inline, color=red!50]{$j_\mu$: #1}}
+%% \newcommand{\commentjq}[1]{\todo[inline, color=blue!50]{\textit{JQ}: #1}}
+%% \newcommand{\commenteg}[1]{\todo[inline, color=green!50]{\textit{EG}: #1}}
+
+%% \newcommand\degree{\ensuremath{{}^\circ}}
+
+\usepackage{helvet,etoolbox}
+\usepackage[EULERGREEK]{sansmath}
+\AtBeginEnvironment{tikzpicture}{
+  \sansmath \sf
+}
+\AtEndEnvironment{tikzpicture}{
+  \unsansmath 
+}
+
+%% \renewcommand{\rmdefault}{phv}
+
+<<setup, include=FALSE, cache=FALSE>>=
+library(knitr)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(magrittr)
+library(ggplot2)
+library(plotutils)
+library(preciptools)
+library(echamtools)
+library(ncdf4)
+library(RColorBrewer)
+## set global chunk options
+opts_chunk$set(fig.path='figure/erf-intensity-', cache.path='cache/erf-intensity-', 
+               fig.align='center', fig.show='hold', cache = TRUE, warning = FALSE, par=TRUE)
+## $
+## I use = but I can replace it with <-; set code/output width to be 68
+options(formatR.arrow=TRUE, width=68, digits=2)
+## evaluation code chunks
+#read_chunk("../eval.R")
+## visualization code chunks
+#read_chunk("../vis.R")
+
+tikz_minus<- function(x) sub("^-", "$-$", format(x))
+tikz_sanitize <- function(x) cbasetools::sanitize.numbers(x, "latex", TRUE, TRUE)
+tikz_sanitize_sparse <- function(x) {
+  ret <- tikz_sanitize(x)
+  ret[seq(1, length(ret), by = 2)] <- ""
+  ret
+}
+
+# change the default scales
+scale_x_continuous <- function(..., labels=tikz_sanitize)
+ggplot2::scale_x_continuous(..., labels=labels)
+
+scale_x_reverse <- function(..., labels=tikz_sanitize)
+ggplot2::scale_x_reverse(..., labels=labels)
+
+scale_y_continuous <- function(..., labels=tikz_sanitize)
+ggplot2::scale_y_continuous(..., labels=labels)
+
+source("prp.R")
+
+@
+
+\Author[1,2,*]{Johannes}{Mülmenstädt}
+\Author[1,$\dagger$]{Christine}{Nam}
+\Author[1]{Marc}{Salzmann}
+\Author[1]{Jan}{Kretzschmar}
+\Author[3]{Tristan S.}{L'Ecuyer}
+\Author[4]{Ulrike}{Lohmann}
+\Author[2]{Po-Lun}{Ma}
+\Author[5]{Gunnar}{Myhre}
+\Author[4]{David}{Neubauer}
+\Author[6]{Philip}{Stier}
+\Author[7]{Kentaroh}{Suzuki}
+\Author[8]{Minghuai}{Wang}
+\Author[1]{Johannes}{Quaas}
+\affil[1]{Institute of Meteorology, Universit\"at Leipzig, Leipzig, Germany.}
+\affil[2]{Atmospheric Science \& Global Change Division, Pacific Northwest National Laboratory, Richland, Washington, USA.}
+\affil[3]{Department of Atmospheric and Oceanic Sciences, University of Wisconsin--Madison, Madison, Wisconsin, USA.}
+\affil[4]{Institute of Atmospheric and Climate Science, ETH Zurich, Zurich, Switzerland.}
+\affil[5]{CICERO Center for International Climate Research, Oslo, Norway.}
+\affil[6]{Department of Physics, University of Oxford, Oxford, United Kingdom.}
+\affil[7]{Atmosphere and Ocean Research Institute, University of Tokyo, Tokyo, Japan.}
+\affil[8]{School of Atmospheric Sciences, Nanjing University, Nanjing, China.}
+\affil[*]{Correspondence to: johannes.muelmenstaedt@pnnl.gov}
+\affil[$\dagger$]{now at Climate Services Center Germany, Hamburg, Germany.}
+
+
+\begin{document}
+
+%% ------------------------------------------------------------------------ %%
+%
+%  TITLE
+%
+%% ------------------------------------------------------------------------ %%
+
+% \title{Understanding the intensity spectrum of warm rain is of critical
+% importance to constraining aerosol--cloud interactions}
+\title{Reducing the aerosol forcing uncertainty using observational constraints
+  on warm rain processes}
+%
+% e.g., \title{Terrestrial ring current:
+% Origin, formation, and decay $\alpha\beta\Gamma\Delta$}
+%
+
+%% ------------------------------------------------------------------------ %%
+%
+%  AUTHORS AND AFFILIATIONS
+%
+%% ------------------------------------------------------------------------ %%
+
+
+%Use \author{\altaffilmark{}} and \altaffiltext{}
+
+% \altaffilmark will produce footnote;
+% matching \altaffiltext will appear at bottom of page.
+
+% \authors{A. B. Smith,\altaffilmark{1}
+% Eric Brown,\altaffilmark{1,2} Rick Williams,\altaffilmark{3}
+% John B. McDougall\altaffilmark{4}, and S. Visconti\altaffilmark{5}}
+% \authors{Johannes~M\"ulmenst\"adt,\altaffilmark{1}
+%   David Neubauer,
+%   Ulrike Lohmann,
+%   \dots,
+%   Johannes~Quaas\altaffilmark{1}}
+
+% %\altaffiltext{1}{Department of Hydrology and Water Resources,
+% %University of Arizona, Tucson, Arizona, USA.}
+% \altaffiltext{1}{Institute of Meteorology, Universit\"at Leipzig, Germany}
+
+%\altaffiltext{3}{Department of Space Sciences, University of
+%Michigan, Ann Arbor, Michigan, USA.}
+
+%\altaffiltext{4}{Division of Hydrologic Sciences, Desert Research
+%Institute, Reno, Nevada, USA.}
+
+%\altaffiltext{5}{Dipartimento di Idraulica, Trasporti ed
+%Infrastrutture Civili, Politecnico di Torino, Turin, Italy.}
+
+\firstpage{1}
+
+\maketitle
+
+\clearpage
+
+<<bias-setup,dev='tikz',fig.width=6,fig.height=6.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+
+df.precip <- bind_rows(get.cosp.counts.echam(4, 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                       mutate(case = "Reference"),
+                       get.cosp.counts.echam(0.4, 1, -1, nudged = TRUE, daily = TRUE) %>%
+                       mutate(case = factor(ccraut)) %>%
+                       mutate(case = factor(case, levels(case), 
+                                            sprintf("$Q_\\text{aut} \\times $%s", levels(case)))),
+                       get.cosp.counts.echam(4, 1, c(15), nudged = TRUE, three.hourly = TRUE) %>%
+                       mutate(case = factor(creth)) %>%
+                       mutate(case = factor(case, levels(case), 
+                                            sprintf("$r_e > %s~\\upmu$m", levels(case))))) %>%
+    mutate(lon = ifelse(lon <= 180, lon, lon - 360)) %>%
+    group_by(lon, lat, case) %>%
+    mutate(warm.frac.drizzle = n.warm.drizzle / (n.warm.drizzle + n.cold.drizzle)) %>%
+    mutate(warm.frac.rain = n.warm.rain / (n.warm.rain + n.cold.rain)) %>%
+    ungroup() %>%
+    select(lon, lat, warm.frac.rain, warm.frac.drizzle, case) %>%
+    bind_rows(.,
+              remap(bind_rows(warmrain %>% 
+                              filter(denom == "rain") %>%
+                              select(lon, lat, liq) %>%
+                              mutate(var = "warm.frac.drizzle"),
+                              warmrain_certain %>%
+                              filter(denom == "rain") %>%
+                              select(lon, lat, liq) %>%
+                              mutate(var = "warm.frac.rain")) %>%
+                    select(lon = lon, lat = lat, liq, var) %>%
+                    spread(var, liq),
+                    .) %>%
+              mutate(case = "Satellite"))
+
+df.precip.bias.relative <- df.precip %>%
+    rename(Case = case) %>%
+    group_by(lon, lat) %>% 
+    mutate(warm.frac.drizzle.bias = (warm.frac.drizzle - warm.frac.drizzle[Case == "Satellite"]) / warm.frac.drizzle,
+           warm.frac.rain.bias = (warm.frac.rain - warm.frac.rain[Case == "Satellite"]) / warm.frac.rain,
+           warm.frac.drizzle.bias.delta = warm.frac.drizzle.bias - warm.frac.drizzle.bias[Case == "Reference"],
+           warm.frac.rain.bias.delta = warm.frac.rain.bias - warm.frac.rain.bias[Case == "Reference"]) %>%
+    ungroup()
+
+df.precip.bias <- df.precip %>%
+    rename(Case = case) %>%
+    group_by(lon, lat) %>% 
+    mutate(warm.frac.drizzle.bias = warm.frac.drizzle - warm.frac.drizzle[Case == "Satellite"],
+           warm.frac.rain.bias = warm.frac.rain - warm.frac.rain[Case == "Satellite"],
+           warm.frac.drizzle.bias.delta = warm.frac.drizzle.bias - warm.frac.drizzle.bias[Case == "Reference"],
+           warm.frac.rain.bias.delta = warm.frac.rain.bias - warm.frac.rain.bias[Case == "Reference"]) %>%
+    ungroup()
+
+df.precip.plot <- df.precip %>%
+    rename(Case = case) %>% 
+    gather(var, warm.frac, warm.frac.drizzle, warm.frac.rain) %>%
+    mutate(intensity = ifelse(grepl("drizzle", var), "Drizzle", "Rain"),
+           baseline = ifelse(grepl("delta", var), "Delta.Bias", "Bias")) %>% 
+    filter(is.finite(warm.frac)) 
+@
+
+\begin{figure}
+  \centering
+  <<bias-reference,dev='tikz',fig.width=6,fig.height=3.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+  df.precip.plot %>%
+      filter(Case %in% c("Satellite", "Reference")) %>% 
+      discretize(warm.frac, warmfrac.breaks(), as_factor = TRUE) %>% 
+      ggplot(aes(lon, lat, fill = warm.frac)) +
+      geom_raster() +
+      geom_contour(aes(z = warm.frac), data = df.precip.plot %>% filter(Case == "Satellite") %>% select(-Case) %>% discretize(warm.frac, warmfrac.breaks()[c(1,3,6,8)], as_factor = TRUE) %>% mutate(warm.frac = as.integer(warm.frac)), binwidth = 1, col = "darkgreen") +
+      scale_x_geo(facet = TRUE) + scale_y_geo() +
+      coord_fixed(xlim = c(-180, 180), ylim = c(-80, 80), expand = FALSE) +
+      scale_fill_warmfrac() +
+      geom_world_polygon(highres = FALSE, lwd = 0.1) +
+      theme_bw()  +
+      theme(legend.position = "bottom", legend.box = "horizontal") +
+      guides(fill = guide_legend(direction = "horizontal",
+                                 nrow = 1,
+                                 label.position = "bottom", label.hjust = 0.5,
+                                 title.position = "left", title.vjust = 1)) +
+      facet_grid(Case ~ intensity) + ## , labeller = label_both)
+      theme(axis.title.x = element_blank(), axis.title.y = element_blank())
+  @
+  \caption{}
+  \label{fig:bias-reference}
+\end{figure}
+
+\clearpage
+
+\begin{figure}
+  \centering
+  
+  <<bias,dev='tikz',fig.width=6,fig.height=3.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+  df.precip.bias %>%
+      select(-c(warm.frac.rain, warm.frac.drizzle)) %>% 
+      gather(var, warm.frac, warm.frac.drizzle.bias : warm.frac.rain.bias.delta) %>%
+      mutate(intensity = ifelse(grepl("drizzle", var), "Drizzle", "Rain"),
+             baseline = ifelse(grepl("delta", var), "Delta.Bias", "Bias")) %>% 
+      filter(baseline == "Delta.Bias") %>%
+      filter(!(Case %in% c("Satellite", "Reference"))) %>% 
+      filter(is.finite(warm.frac)) %>%
+      mutate(warm.frac = pmax(pmin(warm.frac, 0), -0.4)) %>% 
+      ggplot(aes(lon, lat, fill = warm.frac)) +
+      geom_raster() +
+      scale_x_geo(facet = TRUE) + scale_y_geo() +
+      coord_fixed(xlim = c(-180, 180), ylim = c(-80, 80), expand = FALSE) +
+      scale_fill_distiller("$\\Delta f_\\text{warm}$ (Experiment $-$ Reference)",
+                           labels = tikz_sanitize,
+                           palette = "RdPu" ##, limits = c(-0.35,0)
+                           ) +
+      geom_world_polygon(highres = FALSE) +
+      theme_bw() +
+      theme(legend.position = "bottom", legend.box = "horizontal") +
+      guides(fill = guide_colorbar(direction = "horizontal",
+                                   nrow = 1,
+                                   barwidth = 10,
+                                   label.position = "bottom", label.hjust = 0.5,
+                                   title.position = "left", title.vjust = 1)) +
+      facet_grid(Case ~ intensity) + ## , labeller = label_both)
+      theme(axis.title.x = element_blank(), axis.title.y = element_blank())
+
+  @ 
+
+  \caption{}
+  \label{fig:bias}
+\end{figure}
+
+\clearpage
+  
+<<precip,dev='tikz',fig.width=11,fig.height=4.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+df.precip <- bind_rows(get.cosp.counts.echam(4, 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                       mutate(case = "Reference"),
+                       bind_rows(get.cosp.counts.echam(4, 1, c(15,17), nudged = TRUE, three.hourly = TRUE),
+                                 get.cosp.counts.echam(4, 1, c(10,12), nudged = TRUE, daily = TRUE),
+                                 get.cosp.counts.echam(4, 1, c(2,20), nudged = TRUE, three.hourly = TRUE)) %>%
+                       mutate(case = factor(creth)) %>%
+                       mutate(case = factor(case, levels(case), 
+                                            sprintf("$r_e > %s~\\upmu$m", levels(case)))),
+                       bind_rows(get.cosp.counts.echam(c(0.1, 0.4, 1), 1, -1, nudged = TRUE, daily = TRUE),
+                                 get.cosp.counts.echam(c(0.04, 2), 1, -1, nudged = TRUE, three.hourly = TRUE)) %>%
+                       mutate(case = factor(ccraut)) %>%
+                       mutate(case = factor(case, levels(case), 
+                                             sprintf("$Q_\\text{aut} \\times %s$", levels(case))))) %>%
+    mutate(lon = ifelse(lon <= 180, lon, lon - 360)) %>%
+    group_by(lon, lat, case) %>%
+    mutate(warm.frac.drizzle = n.warm.drizzle / (n.warm.drizzle + n.cold.drizzle)) %>%
+    mutate(warm.frac.rain = n.warm.rain / (n.warm.rain + n.cold.rain)) %>%
+    ungroup() %>%
+    select(lon, lat, warm.frac.rain, warm.frac.drizzle, case) %>%
+    bind_rows(bind_rows(warmrain %>% 
+                        filter(denom == "rain") %>%
+                        select(lon, lat, liq) %>%
+                        mutate(var = "warm.frac.drizzle"),
+                        warmrain_certain %>%
+                        filter(denom == "rain") %>%
+                        select(lon, lat, liq) %>%
+                        mutate(var = "warm.frac.rain")) %>%
+              select(lon = lon, lat = lat, liq, var) %>%
+              spread(var, liq) %>%
+              mutate(case = "Satellite"))
+
+df.precip.global <- df.precip %>%
+    ungroup() %>%
+    mutate(cos.lat = cos(lat * pi / 180)) %>%
+    rename(Case = case) %>%
+    group_by(Case) %>%
+    summarize(warm.frac.rain = sum(warm.frac.rain * cos.lat, na.rm = TRUE) / sum(cos.lat),
+              warm.frac.drizzle = sum(warm.frac.drizzle * cos.lat, na.rm = TRUE) / sum(cos.lat)## ,
+              ## n = n()
+              ) %>%
+    ungroup() 
+
+df.precip.global.bias <- df.precip.global %>%
+    mutate(warm.frac.drizzle.bias = warm.frac.drizzle - warm.frac.drizzle[Case == "Satellite"],
+           warm.frac.rain.bias = warm.frac.rain - warm.frac.rain[Case == "Satellite"],
+           warm.frac.drizzle.bias.delta = warm.frac.drizzle.bias - warm.frac.drizzle.bias[Case == "Reference"],
+           warm.frac.rain.bias.delta = warm.frac.rain.bias - warm.frac.rain.bias[Case == "Reference"])
+
+
+@ 
+
+
+<<erf-rad-nonnudged,dev='tikz',fig.width=12,fig.height=5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+df.rad.nonnudged <- get.rad.summary.echam(4, 1, -1, nudged = FALSE, three.hourly = FALSE) %>%
+    mutate(Case = "Reference") %>% 
+    mutate(aprl = aprl - aprs, ## distinguish between rain and snow because of LH
+           aprl = aprl * 2500e3,
+           aprs = aprs * 2830e3,
+           aprc = aprc * 2500e3,
+           aprl = aprl + aprs) %>%
+    mutate(rtot = srad0 + trad0,
+           ptot = aprl + aprc) %>%
+    gather(type, flux, c(srad0:qvi, rtot, ptot)) %>%
+    group_by(Case, type) %>%
+    mutate(cos.lat = cos(lat * pi / 180)) %>%
+    summarize(flux = sum(flux * cos.lat) / sum(cos.lat)) %>%
+    ungroup() %>%
+    filter(type %in% c("ptot", "rtot", "xlvi")) %>% 
+    spread(type, flux) 
+@
+
+<<erf-tbl-prp-setup,dev='tikz',fig.width=12,fig.height=5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='asis'>>=
+
+df.rad <- bind_rows(get.rad.summary.echam(4, 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                    mutate(Case = "Reference"),
+                    get.rad.summary.echam(4, 1, c(10, 12, 15, 17), nudged = TRUE, three.hourly = TRUE) %>%
+                    mutate(Case = factor(creth)) %>%
+                    mutate(Case = factor(Case, levels(Case), 
+                                         sprintf("$r_e > %s~\\upmu$m", levels(Case)))),
+                    get.rad.summary.echam(c(0.04, 0.1, 0.4, 1), 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                    mutate(Case = factor(ccraut)) %>%
+                    mutate(Case = factor(Case, levels(Case), 
+                                         sprintf("$Q_\\text{aut} \\times %s$", levels(Case))))) %>%
+    mutate(aprl = aprl - aprs, ## distinguish between rain and snow because of LH
+           aprl = aprl * 2500e3,
+           aprs = aprs * 2830e3,
+           aprc = aprc * 2500e3,
+           aprl = aprl + aprs) %>%
+    mutate(rtot = srad0 + trad0,
+           ptot = aprl + aprc) %>%
+    mutate(albedo = 1 - srad0 / srad0d,
+           swcre = srad0 - sraf0) %>% 
+    gather(type, flux, c(srad0:qvi, rtot, ptot, albedo, swcre)) %>%
+    group_by(Case, type) %>%
+    mutate(cos.lat = cos(lat * pi / 180)) %>%
+    summarize(flux = sum(flux * cos.lat) / sum(cos.lat)) %>%
+    ungroup() %>%
+    filter(type %in% c("ptot", "rtot", "xlvi", "xivi", "srad0", "albedo", "swcre")) %>% 
+    spread(type, flux) 
+
+df.prp.global <- bind_rows(get.prp.echam(4, 1, -1) %>%
+                           mutate(Case = "Reference"),
+                           get.prp.echam(4, 1, c(10, 12, 15, 17)) %>%
+                           mutate(Case = factor(creth)) %>%
+                           mutate(Case = factor(Case, levels(Case), 
+                                                sprintf("$r_e > %s~\\upmu$m", levels(Case)))),
+                           get.prp.echam(c(0.04, 0.1, 0.4, 1)) %>%
+                           mutate(Case = factor(ccraut)) %>%
+                           mutate(Case = factor(Case, levels(Case), 
+                                             sprintf("$Q_\\text{aut} \\times %s$", levels(Case))))) %>%
+    mutate(pert = toupper(pert)) %>%
+    spread(pert, erf) %>%
+    filter(spectrum == "SW") %>%
+    mutate(F.LWP.ratio = LWP / CDNC) %>%
+    select(Case, CDNC, LWP, F.LWP.ratio)
+
+df.prp.global %<>%
+    left_join(df.rad, by = "Case")  
+@
+
+\begin{figure}
+  \centering
+  <<summary-prp,dev='tikz',fig.width=6,fig.height=3.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+  
+  df.summary.prp <- full_join(df.prp.global, df.precip.global.bias, by = "Case") %>%
+      filter(!is.na(F.LWP.ratio)) %>%
+      filter(Case != "Satellite") %>%
+      mutate(Rain = warm.frac.rain.bias, Drizzle = warm.frac.drizzle.bias) %>%
+      mutate(Tuning = factor(ifelse(grepl("Q", Case),  "$Q_\\text{aut}$ tuning",
+                             ifelse(grepl("Reference", Case), "Reference",
+                             ifelse(grepl("r_e", Case), "$r_e$ tuning", ""))),
+                             levels = c("$Q_\\text{aut}$ tuning", "Reference", "$r_e$ tuning"),
+                             ordered = TRUE)) %>%
+      arrange(Tuning) %>%
+      gather(Intensity, bias, Rain, Drizzle) %>%
+      mutate(Intensity = factor(Intensity, levels = c("Rain", "Drizzle"), ordered = TRUE))
+
+  ## for annotations, we need to know the F_L/F_N values and the left-most and right-most bias
+  df.annot <- df.summary.prp %>%
+      filter(Tuning != "Reference") %>% 
+      spread(Intensity, bias) %>%
+      mutate(position = max(Rain, Drizzle) + 0.01) %>% ## position is where the label ends
+      group_by(Case) %>% 
+      mutate(endpoint = min(Rain, Drizzle)) %>% ## endpoint is where the connecting line ends
+      ungroup() 
+
+  df.arrows <- df.summary.prp %>%
+      filter(Intensity == "Rain") %>% ## to get rid of duplicates
+      mutate(arrow.start = F.LWP.ratio[Tuning == "Reference"]) %>%
+      filter(F.LWP.ratio == max(F.LWP.ratio) | F.LWP.ratio == min(F.LWP.ratio)) %>%
+      mutate(arrow.end = F.LWP.ratio) %>%
+      mutate(label = c("Decreasing $Q_\\text{aut}$", "Increasing $r_e$"))
+
+  hollow_arrow <- function(df, width, head, trunc) {
+      width <- 0.5 * width
+      ddply(df, ~ Tuning, function(df) {
+          with(df, data.frame(x = c(arrow.start + sign(arrow.end - arrow.start) * trunc, arrow.end - sign(arrow.end - arrow.start) * head, arrow.end - sign(arrow.end - arrow.start) * head, arrow.end, arrow.end - sign(arrow.end - arrow.start) * head, arrow.end - sign(arrow.end - arrow.start) * head, arrow.start + sign(arrow.end - arrow.start) * trunc, arrow.start + sign(arrow.end - arrow.start) * trunc),
+                              y = c(-width, -width, -2 * width, 0, 2 * width, width, width, -width)))
+      })
+  }
+  
+  df.summary.prp %>%
+      ggplot(aes(y = bias, x = F.LWP.ratio)) +
+      ## start with annotations:
+      geom_vline(aes(xintercept = arrow.start), df.arrows, lwd = 0.5, lty = "dashed", col = "darkgrey", show.legend = FALSE) +
+      ## geom_segment(aes(x = F.LWP.ratio, y = position + 2e-3, xend = F.LWP.ratio, yend = endpoint), df.annot %>% filter(Tuning == "Reference"), color = "black", lwd = 0.5) +
+      geom_segment(aes(x = F.LWP.ratio, y = position - 2e-3, xend = F.LWP.ratio, yend = endpoint), df.annot %>% filter(Tuning != "Reference"), color = "darkgrey", lwd = 0.25) +
+      geom_text(aes(x = F.LWP.ratio, y = position, label = Case, color = Tuning), df.annot, hjust = 0, vjust = 0.5, size = 3, label.r = unit(0, "mm"), fill = "darkgrey", show.legend = FALSE) +
+      ## geom_segment(aes(x = arrow.start, y = -0.025, xend = arrow.end, yend = -0.025, color = Tuning), df.arrows, arrow = arrow(length = unit(0.03, "npc")), lineend = "round", linejoin = "bevel", lwd = 10, alpha = 0.5, show.legend = FALSE) +
+      geom_polygon(aes(x = x, y = y + 0.2, color = Tuning, fill = Tuning), hollow_arrow(df.arrows, 0.01, 0.05, 0.005), show.legend = FALSE, alpha = 1e-1) +
+      geom_text(aes(x = (3 * arrow.start + 2 * arrow.end) / 5, y = 0.2, label = label, color = Tuning), df.arrows, hjust = 0.5, vjust = 0.5, size = 3.5, angle = 90, show.legend = FALSE) +
+      ## finally get around to the actual plot
+      geom_path(aes(lty = Intensity, group = Intensity), lwd = 1.5) +
+      geom_point(aes(shape = Tuning, col = Tuning), size = 3.5) + 
+      scale_color_manual(values = brewer.pal(3, "Dark2")[c(2,1,3)], aesthetics = c("color", "fill")) +
+      coord_flip(xlim = c(0.855, 1.265), ylim = c(0.02, 0.2125), expand = FALSE) +
+      labs(y = "Precipitation frequency bias ($\\longleftarrow$ better agreement with satellite)",
+           x = "Normalized liquid-water path adjustment") +
+      theme_bw() +
+      theme(legend.position = c(0.15, 0.55),
+            legend.background = element_rect(fill=alpha("white", 0)))
+
+  @ 
+  \caption{}
+  \label{fig:summary}
+\end{figure}
+
+\clearpage
+\appendix
+
+\appendixfigures
+\appendixtables
+
+\begin{figure*}[t]
+  \centering
+  <<cld-ecdfs,dev='tikz',fig.width=6.27,fig.height=2.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='asis'>>=
+  
+  kernel.sensitivities <- function(fname) {
+      nc <- try(ncdf4::nc_open(fname), silent = TRUE)
+      if (class(nc) == "try-error")
+          return(NULL)
+      t <- ncdf4::ncvar_get(nc, "time")
+      lon <- ncdf4::ncvar_get(nc, "lon")
+      lat <- ncdf4::ncvar_get(nc, "lat")
+      xlvi <- ncdf4::ncvar_get(nc, "XLVI")
+      fsw_diff <- ncdf4::ncvar_get(nc, "FSW_TOTAL_TOP_LWP")
+      fsw_total_top_unpert <- ncdf4::ncvar_get(nc, "FSW_TOTAL_TOP_UNPERT")
+      flw_total_top_unpert <- ncdf4::ncvar_get(nc, "FLW_TOTAL_TOP_UNPERT")
+      fsw_total_top_lwp    <- ncdf4::ncvar_get(nc, "FSW_TOTAL_TOP_LWP")
+      flw_total_top_lwp    <- ncdf4::ncvar_get(nc, "FLW_TOTAL_TOP_LWP")
+      fsw_total_top_cdnc   <- ncdf4::ncvar_get(nc, "FSW_TOTAL_TOP_CDNC")
+      flw_total_top_cdnc   <- ncdf4::ncvar_get(nc, "FLW_TOTAL_TOP_CDNC")
+      fsw_total_top_cf     <- ncdf4::ncvar_get(nc, "FSW_TOTAL_TOP_CLDFRA")
+      flw_total_top_cf     <- ncdf4::ncvar_get(nc, "FLW_TOTAL_TOP_CLDFRA")
+      cos_mu0 <- ncdf4::ncvar_get(nc, "COS_MU0")
+      xlvi       <- ncdf4::ncvar_get(nc, "XLVI")
+      cdnc       <- ncdf4::ncvar_get(nc, "CDNC")
+      cldfra     <- ncdf4::ncvar_get(nc, "CLDFRA")
+      cldfra_liq <- ncdf4::ncvar_get(nc, "CLDFRA_LIQ")
+      ncdf4::nc_close(nc)
+      ## finite difference approximation to logarithmic derivatives
+      dfsw.dlog.lwp <-
+          2 * (fsw_total_top_lwp - fsw_total_top_unpert) /
+          (fsw_total_top_lwp + fsw_total_top_unpert) /
+          (0.1 / 1.05)
+      dfsw.dlog.cdnc <-
+          2 * (fsw_total_top_cdnc - fsw_total_top_unpert) /
+          (fsw_total_top_cdnc + fsw_total_top_unpert) /
+          (0.1 / 1.05)
+      dfsw.dcf <-
+          2 * (fsw_total_top_cdnc - fsw_total_top_unpert) /
+          (fsw_total_top_cdnc + fsw_total_top_unpert) /
+          (0.1 * cldfra_liq)
+      expand.grid(lon = as.vector(lon),
+                  lat = as.vector(lat),
+                  time = as.vector(t)) %>%
+          dplyr::mutate(dfsw.dlog.lwp  = as.vector(dfsw.dlog.lwp ),
+                        dfsw.dlog.cdnc = as.vector(dfsw.dlog.cdnc),
+                        dfsw.dcf       = as.vector(dfsw.dcf      ),
+                        fsw_total_top_unpert = as.vector(fsw_total_top_unpert),
+                        flw_total_top_unpert = as.vector(flw_total_top_unpert),
+                        cos_mu0            = as.vector(cos_mu0           ),
+                        xlvi               = as.vector(xlvi              ),
+                        cdnc               = as.vector(cdnc              ),
+                        cldfra             = as.vector(cldfra            ),
+                        cldfra_liq         = as.vector(cldfra_liq        ))
+  }
+
+  bind_rows(kernel.sensitivities("~/echam-prp/rain_0.04_1_-1_nudged_3hourly_200410.01_forcing.nc") %>%
+            mutate(exp = "$Q_\\text{aut}\\times 0.04$"),
+            kernel.sensitivities("~/echam-prp/rain_4_1_-1_pi_no-cosp_nudged_hourly_201010.01_forcing.nc") %>%
+            mutate(exp = "Reference"),
+            kernel.sensitivities("~/echam-prp/rain_4_1_17_nudged_3hourly_200410.01_forcing.nc") %>%
+            mutate(exp = "$r_e > 17~\\mu$m")) %>%
+      mutate(exp = factor(exp, levels = unique(exp))) %>%
+      filter(cos_mu0 > 0.5) %>% 
+      mutate(xlvi = (xlvi * 1e3 / cldfra_liq) %>% replace(., !is.finite(.), NA) %>% pmin(1500),
+             cdnc = (cdnc * 1e-6 / cldfra_liq) %>% replace(., !is.finite(.), NA) %>% pmin(500),
+             cldfra_liq = 1e2 * cldfra_liq) %>%
+      select(xlvi, cdnc, cldfra_liq, exp) %>%
+      gather(key, val, xlvi, cdnc, cldfra_liq) %>%
+      mutate(key = revalue(key, c(xlvi = "$\\lwp/C$ (\\unit{g~m^{-2}})", 
+                                  cdnc = "$\\langle\\nd\\rangle/C$ (\\unit{cm^{-3}})", 
+                                  cldfra_liq = "$C$ (\\%)"))) %>%
+      ggplot(aes(x = val, col = exp)) +
+      ## stat_ecdf(n = 3e3) +
+      geom_step(lwd = 1, stat = "bin", aes(y = stat(ncount)), position = "identity", pad = TRUE, bins = 50) +
+      scale_x_continuous(expand = expand_scale(0.0,0)) +
+      facet_grid(. ~ key, scales = "free", switch = "x") +
+      scale_color_manual("", values = brewer.pal(3, "Dark2")[c(2,1,3)], aesthetics = c("color", "fill")) +
+      ## labs(x = "$\\xi$", y = "CDF$(\\xi)$") +
+      labs(x = "$\\xi$", y = "Normalized frequency") +
+      theme_bw() +
+      theme(legend.position = c(0.85, 0.8), legend.background = element_rect(fill = NA),
+            legend.spacing.y = unit(0, "lines")
+            ## legend.position = "bottom", legend.box = "horizontal"
+            ) +
+      theme(axis.title.x = element_blank(),
+            strip.placement = "outside", strip.background.x = element_blank())
+
+  @
+  
+  \caption{}
+  \label{fig:ecdfs}
+\end{figure*}
+
+\clearpage
+
+\begin{figure}
+  \centering
+  <<ccraut,dev='tikz',fig.width=6,fig.height=6.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+  df.drizzle <- bind_rows(get.cosp.counts.echam(c(0.04, 4), 1, -1, nudged = TRUE, three.hourly = TRUE),
+                          get.cosp.counts.echam(c(0.1, 0.4, 1), 1, -1, nudged = TRUE, daily = TRUE)) %>%
+      mutate(case = factor(ccraut)) %>%
+      mutate(case = factor(case, levels(case), 
+                           sprintf("$Q_\\text{aut} \\times $%s", levels(case)))) %>%
+      mutate(lon = ifelse(lon <= 180, lon, lon - 360)) %>%
+      group_by(lon, lat, case) %>%
+      mutate(warm.frac = n.warm.drizzle / (n.warm.drizzle + n.cold.drizzle)) %>%
+      ungroup() %>%
+      select(lon, lat, warm.frac, case) %>%
+      bind_rows(warmrain %>% 
+                filter(denom == "rain") %>%
+                transmute(lon = lon, lat = lat, warm.frac = liq, case = "Satellite")) %>%
+      mutate(intensity = "Drizzle")
+
+  df.rain <- bind_rows(get.cosp.counts.echam(c(0.04, 4), 1, -1, nudged = TRUE, three.hourly = TRUE), 
+                       get.cosp.counts.echam(c(0.1, 0.4, 1), 1, -1, nudged = TRUE, daily = TRUE)) %>%
+      mutate(case = factor(ccraut)) %>%
+      mutate(case = factor(case, levels(case), 
+                           sprintf("$Q_\\text{aut} \\times $%s", levels(case)))) %>%
+      mutate(lon = ifelse(lon <= 180, lon, lon - 360)) %>%
+      group_by(lon, lat, case) %>%
+      mutate(warm.frac = n.warm.rain / (n.warm.rain + n.cold.rain)) %>%
+      ungroup() %>%
+      select(lon, lat, warm.frac, case) %>%
+      bind_rows(warmrain_certain %>% 
+                filter(denom == "rain") %>%
+                transmute(lon = lon, lat = lat, warm.frac = liq, case = "Satellite")) %>%
+      mutate(intensity = "Rain")
+
+  rbind(df.drizzle, df.rain) %>%
+      filter(is.finite(warm.frac)) %>%
+      discretize(warm.frac, warmfrac.breaks(), as_factor = TRUE) %>%
+      ggplot(aes(lon, lat, fill = warm.frac)) +
+      geom_raster() +
+      scale_x_geo(facet = TRUE) + scale_y_geo() +
+      coord_fixed(xlim = c(-180, 180), ylim = c(-80, 80), expand = FALSE) +
+      scale_fill_warmfrac() +
+      geom_world_polygon(highres = FALSE) +
+      theme_bw()  +
+      theme(legend.position = "bottom", legend.box = "horizontal") +
+      guides(fill = guide_legend(direction = "horizontal",
+                                 nrow = 1,
+                                 label.position = "bottom", label.hjust = 0.5,
+                                 title.position = "left", title.vjust = 1)) +
+      facet_grid(case ~ intensity) + ## , labeller = label_both)
+      theme(axis.title.x = element_blank(), axis.title.y = element_blank())
+
+  @ 
+  
+  \caption{}
+  \label{fig:scale}
+\end{figure}
+  
+\clearpage
+
+\begin{figure}
+  \centering
+  
+  <<creth,dev='tikz',fig.width=6,fig.height=6.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+  
+  df.drizzle <- bind_rows(get.cosp.counts.echam(4, 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                          mutate(case = "Reference"),
+                          bind_rows(get.cosp.counts.echam(4, 1, c(15,17), nudged = TRUE, three.hourly = TRUE),
+                                    get.cosp.counts.echam(4, 1, c(10,12), nudged = TRUE, daily = TRUE))) %>%
+      mutate(ccauloc = replace(ccauloc, is.na(ccauloc), 1),
+             creth = replace(creth, creth < 0, 0)) %>%
+      mutate(case = factor(as.integer(creth))) %>%
+      mutate(lon = ifelse(lon <= 180, lon, lon - 360)) %>%
+      group_by(lon, lat, case) %>%
+      mutate(warm.frac = n.warm.drizzle / (n.warm.drizzle + n.cold.drizzle)) %>%
+      ungroup() %>%
+      select(lon, lat, warm.frac, case) %>%
+      bind_rows(warmrain %>% 
+                filter(denom == "rain") %>%
+                transmute(lon = lon, lat = lat, warm.frac = liq, case = "Satellite")) %>%
+      mutate(intensity = "Drizzle")
+
+  df.rain <- bind_rows(get.cosp.counts.echam(4, 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                       mutate(case = "Reference"),
+                       bind_rows(get.cosp.counts.echam(4, 1, c(15,17), nudged = TRUE, three.hourly = TRUE),
+                                 get.cosp.counts.echam(4, 1, c(10,12), nudged = TRUE, daily = TRUE))) %>%
+      mutate(ccauloc = replace(ccauloc, is.na(ccauloc), 1),
+             creth = replace(creth, creth < 0, 0)) %>%
+      mutate(case = factor(as.integer(creth))) %>%
+      mutate(lon = ifelse(lon <= 180, lon, lon - 360)) %>%
+      group_by(lon, lat, case) %>%
+      mutate(warm.frac = n.warm.rain / (n.warm.rain + n.cold.rain)) %>%
+      ungroup() %>%
+      select(lon, lat, warm.frac, case) %>%
+      bind_rows(warmrain_certain %>% 
+                filter(denom == "rain") %>%
+                transmute(lon = lon, lat = lat, warm.frac = liq, case = "Satellite")) %>%
+      mutate(intensity = "Rain")
+
+  rbind(df.drizzle, df.rain) %>%
+      mutate(case = factor(case)) %>% 
+      ## fancy labeling
+      mutate(case = factor(case, levels(case), 
+                           ifelse(levels(case) == "Satellite", 
+                                  "Satellite", 
+                                  sprintf("$r_e > %s~\\upmu$m", levels(case))))) %>%
+      filter(is.finite(warm.frac)) %>%
+      discretize(warm.frac, warmfrac.breaks(), as_factor = TRUE) %>%
+      ggplot(aes(lon, lat, fill = warm.frac)) +
+      geom_raster() +
+      scale_x_geo(facet = TRUE) + scale_y_geo() +
+      coord_fixed(xlim = c(-180, 180), ylim = c(-80, 80), expand = FALSE) +
+      scale_fill_warmfrac() +
+      geom_world_polygon(highres = FALSE) +
+      theme_bw()  +
+      theme(legend.position = "bottom", legend.box = "horizontal") +
+      guides(fill = guide_legend(direction = "horizontal",
+                                 nrow = 1,
+                                 label.position = "bottom", label.hjust = 0.5,
+                                 title.position = "left", title.vjust = 1)) +
+      facet_grid(case ~ intensity) + ## , labeller = label_both)
+      theme(axis.title.x = element_blank(), axis.title.y = element_blank())
+  @ 
+  \caption{}
+  \label{fig:re}
+\end{figure}
+
+\clearpage
+
+\begin{figure*}[t]
+  \centering
+
+  <<erf-qaut-diff,dev='tikz',fig.width=6.27,fig.height=5.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='asis'>>=
+  gg <- bind_rows(prp("~/echam-prp/rain_0.04_1_-1_nudged_3hourly") %>%
+                  mutate(exp = "Qaut"),
+                  prp("~/echam-prp/rain_4_1_-1_no-cosp_nudged_3hourly") %>%
+                  mutate(exp = "Reference"),
+                  prp("~/echam-prp/rain_4_1_17_no-cosp_nudged_3hourly") %>%
+                  mutate(exp = "re")) %>% 
+      prp.combine.lw.and.sw() %>%
+      spread(pert, erf) %>%
+      group_by(lon, lat, exp) %>% 
+      summarize(lwp = mean(lwp),
+                cdnc = mean(cdnc),
+                erf = lwp / cdnc) %>%
+      ungroup() %>%
+      filter(cdnc < -0.2, lwp < -0.2) %>% 
+      select(-(cdnc : lwp)) %>% 
+      spread(exp, erf) %>%
+      group_by(lon, lat) %>%
+      mutate(Qaut = Qaut - Reference,
+             re = re - Reference) %>%
+      ungroup() %>%
+      gather(exp, erf, Qaut, re) %>%
+      filter(is.finite(erf)) %>%
+      mutate(exp = revalue(exp, c(Qaut = "$Q_\\text{aut}\\times 0.04 - \\text{Reference}$",
+                                  re = "$r_e > 17~\\upmu\\text{m} - \\text{Reference}$"))) %>%
+      mutate(exp = factor(exp, levels = c("$Q_\\text{aut}\\times 0.04 - \\text{Reference}$",
+                                          "$r_e > 17~\\upmu\\text{m} - \\text{Reference}$"))) %>%
+      group_by(exp) %>% 
+      prp.plot(c(-0.69, 0.69), palette = "RdBu", direction = 1, title = "$\\Delta(F_{\\lwp}/F_{\\nd})$")
+
+  gg + theme(axis.title.x = element_blank(), axis.title.y = element_blank())
+
+  @ 
+  \caption{}
+  \label{fig:echam-ham-warmrain-diff}
+\end{figure*}
+
+\clearpage
+
+\begin{figure}
+  \centering
+  <<summary-alpha,dev='tikz',fig.width=6,fig.height=3.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+  
+  df.prp.global.alpha <- bind_rows(get.prp.echam(4, 1, -1) %>%
+                                   mutate(Case = "$\\alpha = 2.47$ (reference)",
+                                          cautalpha = 2.47),
+                                   get.prp.echam(4, 1, -1, cautalpha = c(## 1.25, 1.5,
+                                                               1.75, 2, 2.25, 2.8, 3.2, 3.6, 4, 4.5, 5)) %>%
+                                   mutate(Case = factor(cautalpha)) %>%
+                                   mutate(Case = factor(Case, levels(Case), 
+                                                        sprintf("$\\alpha = %s$", levels(Case))))
+                                   ) %>%
+      mutate(pert = toupper(pert)) %>%
+      spread(pert, erf) %>%
+      filter(spectrum == "SW") %>%
+      mutate(F.LWP.ratio = LWP / CDNC) %>%
+      arrange(cautalpha) %>% 
+      select(Case, CDNC, LWP, F.LWP.ratio)
+  
+  df.rad.global <-
+      bind_rows(get.rad.summary.echam(4, 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                mutate(case = "$\\alpha = 2.47$ (reference)"),
+                get.rad.summary.echam(4, 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                mutate(case = "$\\beta = 1.79$ (reference)"),
+                get.rad.summary.echam(4, 1, -1, cautbeta = -c(1.0, 1.2, 1.4, 1.6, 2.0, 2.4, 2.8, 3.2, 3.6), nudged = TRUE, three.hourly = TRUE) %>%
+                mutate(case = factor(-cautbeta)) %>%
+                mutate(case = factor(case, levels(case), 
+                                     sprintf("$\\beta = %s$", levels(case)))),
+                get.rad.summary.echam(4, 1, -1, cautalpha = c(1.25, 1.5, 1.75, 2, 2.25, 2.8, 3.2, 3.6, 4, 4.5, 5), nudged = TRUE, three.hourly = TRUE) %>%
+                mutate(case = factor(cautalpha)) %>%
+                mutate(case = factor(case, levels(case), 
+                                     sprintf("$\\alpha = %s$", levels(case))))) %>%
+      mutate(aprl = aprl - aprs, ## distinguish between rain and snow because of LH
+             aprl = aprl * 2500e3,
+             aprs = aprs * 2830e3,
+             aprc = aprc * 2500e3,
+             aprl = aprl + aprs) %>%
+      mutate(rtot = srad0 + trad0,
+             ptot = aprl + aprc) %>%
+      mutate(albedo = 1 - srad0 / srad0d,
+             swcre = srad0 - sraf0) %>% 
+      gather(type, flux, c(srad0:qvi, rtot, ptot, albedo, swcre)) %>%
+      group_by(case, type) %>%
+      mutate(cos.lat = cos(lat * pi / 180)) %>%
+      summarize(flux = sum(flux * cos.lat) / sum(cos.lat)) %>%
+      ungroup() %>%
+      filter(type %in% c("ptot", "rtot", "xlvi", "srad0", "albedo", "swcre")) %>% 
+      rename(Case = case) %>%
+      spread(type, flux) 
+
+  df.prp.global.alpha %<>%
+      left_join(df.rad.global, by = "Case")  
+  
+  df.precip.global.alpha <-
+      bind_rows(get.cosp.counts.echam(4, 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                mutate(case = "$\\alpha = 2.47$ (reference)"),
+                get.cosp.counts.echam(4, 1, -1, cautbeta = -c(1.0, 1.2, 1.4, 1.6, 2.0, 2.4, 2.8, 3.2, 3.6), nudged = TRUE, three.hourly = TRUE) %>%
+                mutate(case = factor(cautbeta)) %>%
+                mutate(case = factor(case, levels(case), 
+                                     sprintf("$\\beta = %s$", levels(case)))),
+                get.cosp.counts.echam(4, 1, -1, cautalpha = c(1.25, 1.5, 1.75, 2, 2.25, 2.8, 3.2, 3.6, 4, 4.5, 5), nudged = TRUE, three.hourly = TRUE) %>%
+                mutate(case = factor(cautalpha)) %>%
+                mutate(case = factor(case, levels(case), 
+                                     sprintf("$\\alpha = %s$", levels(case))))) %>%
+      mutate(lon = ifelse(lon <= 180, lon, lon - 360)) %>%
+      group_by(lon, lat, case) %>%
+      mutate(warm.frac.drizzle = n.warm.drizzle / (n.warm.drizzle + n.cold.drizzle)) %>%
+      mutate(warm.frac.rain = n.warm.rain / (n.warm.rain + n.cold.rain)) %>%
+      ungroup() %>%
+      select(lon, lat, warm.frac.rain, warm.frac.drizzle, case) %>%
+      bind_rows(bind_rows(warmrain %>% 
+                          filter(denom == "rain") %>%
+                          select(lon, lat, liq) %>%
+                          mutate(var = "warm.frac.drizzle"),
+                          warmrain_certain %>%
+                          filter(denom == "rain") %>%
+                          select(lon, lat, liq) %>%
+                          mutate(var = "warm.frac.rain")) %>%
+                select(lon = lon, lat = lat, liq, var) %>%
+                spread(var, liq) %>%
+                mutate(case = "Satellite")) %>% 
+      ungroup() %>%
+      mutate(cos.lat = cos(lat * pi / 180)) %>%
+      rename(Case = case) %>%
+      group_by(Case) %>%
+      summarize(warm.frac.rain = sum(warm.frac.rain * cos.lat, na.rm = TRUE) / sum(cos.lat),
+                warm.frac.drizzle = sum(warm.frac.drizzle * cos.lat, na.rm = TRUE) / sum(cos.lat)## ,
+                ## n = n()
+                ) %>%
+      ungroup() 
+
+  df.precip.global.bias.alpha <- df.precip.global.alpha %>%
+      mutate(warm.frac.drizzle.bias = warm.frac.drizzle - warm.frac.drizzle[Case == "Satellite"],
+             warm.frac.rain.bias = warm.frac.rain - warm.frac.rain[Case == "Satellite"])
+
+  df.summary.alpha <- full_join(df.prp.global.alpha, df.precip.global.bias.alpha, by = "Case") %>%
+      filter(!is.na(F.LWP.ratio)) %>%
+      filter(Case != "Satellite") %>%
+      mutate(Rain = warm.frac.rain.bias, Drizzle = warm.frac.drizzle.bias) %>%
+      mutate(Tuning = factor(ifelse(grepl("reference", Case), "Reference",
+                             ifelse(grepl("alpha", Case),  "$\\alpha$ tuning",
+                             ifelse(grepl("beta", Case), "$\\beta$ tuning", ""))),
+                             levels = c("$\\alpha$ tuning", "Reference", "$\\beta$ tuning"),
+                             ordered = TRUE)) %>%
+      gather(Intensity, bias, Rain, Drizzle) %>%
+      mutate(Intensity = factor(Intensity, levels = c("Rain", "Drizzle"), ordered = TRUE))
+
+  df.summary.alpha %>%
+      ggplot(aes(y = bias, x = F.LWP.ratio)) +
+      geom_path(aes(lty = Intensity, group = Intensity), lwd = 1.5) +
+      geom_point(aes(shape = Tuning, col = Tuning), size = 4) + 
+      ## scale_alpha_manual("", values = c(0,1), guide = "none") +
+      scale_color_manual(values = brewer.pal(3, "Dark2")[c(2,1,3)]) +
+      coord_flip() +
+      labs(y = "Precipitation frequency bias ($\\longleftarrow$ better agreement with satellite)",
+           x = "Normalized liquid-water path adjustment") +
+      theme_bw()
+  @
+  \caption{}
+  \label{fig:summary-alpha}
+\end{figure}
+
+\clearpage
+
+\begin{figure}
+  \centering
+  <<summary-beta,dev='tikz',fig.width=6,fig.height=3.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+  
+  df.prp.global.beta <- bind_rows(get.prp.echam(4, 1, -1) %>%
+                                  mutate(Case = "$\\beta = 1.79$ (reference)",
+                                         cautbeta = 1.79),
+                                  get.prp.echam(4, 1, -1, cautbeta = -c(1.0, 1.2, 1.4, 1.6, 2.0, 2.4, 2.8, 3.2, 3.6)) %>%
+                                  mutate(cautbeta = -cautbeta) %>% 
+                                  mutate(Case = factor(cautbeta)) %>%
+                                  mutate(Case = factor(Case, levels(Case), 
+                                                       sprintf("$\\beta = %s$", levels(Case))))) %>%
+      mutate(pert = toupper(pert)) %>%
+      spread(pert, erf) %>%
+      filter(spectrum == "SW") %>%
+      mutate(F.LWP.ratio = LWP / CDNC) %>%
+      arrange(cautbeta) %>% 
+      select(Case, CDNC, LWP, F.LWP.ratio)
+
+  df.prp.global.beta %<>%
+      left_join(df.rad.global, by = "Case")  
+  
+  df.precip.global.beta <-
+      bind_rows(get.cosp.counts.echam(4, 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                mutate(case = "$\\beta = 1.79$ (reference)"),
+                get.cosp.counts.echam(4, 1, -1, cautbeta = -c(1.0, 1.2, 1.4, 1.6, 2.0, 2.4, 2.8, 3.2, 3.6), nudged = TRUE, three.hourly = TRUE) %>%
+                mutate(cautbeta = -cautbeta) %>% 
+                mutate(case = factor(cautbeta)) %>%
+                mutate(case = factor(case, levels(case), 
+                                     sprintf("$\\beta = %s$", levels(case)))),
+                get.cosp.counts.echam(4, 1, -1, cautalpha = c(1.25, 1.5, 1.75, 2, 2.25, 2.8, 3.2, 3.6, 4, 4.5, 5), nudged = TRUE, three.hourly = TRUE) %>%
+                mutate(case = factor(cautalpha)) %>%
+                mutate(case = factor(case, levels(case), 
+                                     sprintf("$\\alpha = %s$", levels(case))))) %>%
+      mutate(lon = ifelse(lon <= 180, lon, lon - 360)) %>%
+      group_by(lon, lat, case) %>%
+      mutate(warm.frac.drizzle = n.warm.drizzle / (n.warm.drizzle + n.cold.drizzle)) %>%
+      mutate(warm.frac.rain = n.warm.rain / (n.warm.rain + n.cold.rain)) %>%
+      ungroup() %>%
+      select(lon, lat, warm.frac.rain, warm.frac.drizzle, case) %>%
+      bind_rows(bind_rows(warmrain %>% 
+                          filter(denom == "rain") %>%
+                          select(lon, lat, liq) %>%
+                          mutate(var = "warm.frac.drizzle"),
+                          warmrain_certain %>%
+                          filter(denom == "rain") %>%
+                          select(lon, lat, liq) %>%
+                          mutate(var = "warm.frac.rain")) %>%
+                select(lon = lon, lat = lat, liq, var) %>%
+                spread(var, liq) %>%
+                mutate(case = "Satellite")) %>% 
+      ungroup() %>%
+      mutate(cos.lat = cos(lat * pi / 180)) %>%
+      rename(Case = case) %>%
+      group_by(Case) %>%
+      summarize(warm.frac.rain = sum(warm.frac.rain * cos.lat, na.rm = TRUE) / sum(cos.lat),
+                warm.frac.drizzle = sum(warm.frac.drizzle * cos.lat, na.rm = TRUE) / sum(cos.lat)## ,
+                ## n = n()
+                ) %>%
+      ungroup() 
+
+  df.precip.global.bias.beta <- df.precip.global.beta %>%
+      mutate(warm.frac.drizzle.bias = warm.frac.drizzle - warm.frac.drizzle[Case == "Satellite"],
+             warm.frac.rain.bias = warm.frac.rain - warm.frac.rain[Case == "Satellite"])
+
+  
+  
+  df.summary.beta <- full_join(df.prp.global.beta, df.precip.global.bias.beta, by = "Case") %>%
+      filter(!is.na(F.LWP.ratio)) %>%
+      filter(Case != "Satellite") %>%
+      mutate(Rain = warm.frac.rain.bias, Drizzle = warm.frac.drizzle.bias) %>%
+      mutate(Tuning = factor(ifelse(grepl("reference", Case), "Reference",
+                             ifelse(grepl("alpha", Case),  "$\\alpha$ tuning",
+                             ifelse(grepl("beta", Case), "$\\beta$ tuning", ""))),
+                             levels = c("$\\alpha$ tuning", "$\\beta$ tuning", "Reference"),
+                             ordered = TRUE)) %>%
+      gather(Intensity, bias, Rain, Drizzle) %>%
+      mutate(Intensity = factor(Intensity, levels = c("Rain", "Drizzle"), ordered = TRUE))
+
+  df.summary.beta %>%
+      ggplot(aes(y = bias, x = F.LWP.ratio)) +
+      geom_path(aes(lty = Intensity, group = Intensity), lwd = 1.5) +
+      geom_point(aes(shape = Tuning, col = Tuning), size = 4) + 
+      ## scale_alpha_manual("", values = c(0,1), guide = "none") +
+      scale_color_manual(values = brewer.pal(3, "Dark2")[c(2,1,3)]) +
+      coord_flip() +
+      labs(y = "Precipitation frequency bias ($\\longleftarrow$ better agreement with satellite)",
+           x = "Normalized liquid-water path adjustment") +
+      theme_bw()
+  @
+  \caption{}
+  \label{fig:summary-beta}
+\end{figure}
+
+\clearpage
+
+<<precip-ocean,dev='tikz',fig.width=11,fig.height=4.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+
+data(lsm_T63)
+  
+lsm_T63 %<>%
+    dplyr::mutate(lon = ifelse(lon <= 180, lon, lon - 360)) %>%
+    dplyr::mutate(lon = 1e-5 * lon %/% 1e-5,
+                  lat = 1e-5 * lat %/% 1e-5)
+  
+df.precip.landsea <- bind_rows(get.cosp.counts.echam(4, 1, -1, nudged = TRUE, three.hourly = TRUE) %>%
+                               mutate(case = "Reference"),
+                               bind_rows(get.cosp.counts.echam(4, 1, c(15,17), nudged = TRUE, three.hourly = TRUE),
+                                         get.cosp.counts.echam(4, 1, c(10,12), nudged = TRUE, daily = TRUE),
+                                         get.cosp.counts.echam(4, 1, c(2,20), nudged = TRUE, three.hourly = TRUE)) %>%
+                               mutate(case = factor(creth)) %>%
+                               mutate(case = factor(case, levels(case), 
+                                                    sprintf("$r_e > %s~\\upmu$m", levels(case)))),
+                               bind_rows(get.cosp.counts.echam(c(0.1, 0.4, 1), 1, -1, nudged = TRUE, daily = TRUE),
+                                         get.cosp.counts.echam(c(0.04, 2), 1, -1, nudged = TRUE, three.hourly = TRUE)) %>%
+                               mutate(case = factor(ccraut)) %>%
+                               mutate(case = factor(case, levels(case), 
+                                                    sprintf("$Q_\\text{aut} \\times %s$", levels(case))))) %>%
+    mutate(lon = ifelse(lon <= 180, lon, lon - 360)) %>%
+    group_by(lon, lat, case) %>%
+    mutate(warm.frac.drizzle = n.warm.drizzle / (n.warm.drizzle + n.cold.drizzle)) %>%
+    mutate(warm.frac.rain = n.warm.rain / (n.warm.rain + n.cold.rain)) %>%
+    ungroup() %>%
+    select(lon, lat, warm.frac.rain, warm.frac.drizzle, case) %>%
+    bind_rows(.,
+              remap(bind_rows(warmrain %>% 
+                              filter(denom == "rain") %>%
+                              select(lon, lat, liq) %>%
+                              mutate(var = "warm.frac.drizzle"),
+                              warmrain_certain %>%
+                              filter(denom == "rain") %>%
+                              select(lon, lat, liq) %>%
+                              mutate(var = "warm.frac.rain")) %>%
+                    select(lon = lon, lat = lat, liq, var) %>%
+                    spread(var, liq),
+                    .) %>%
+              mutate(case = "Satellite")) %>% 
+    ungroup() %>%
+    mutate(lon = 1e-5 * lon %/% 1e-5,
+           lat = 1e-5 * lat %/% 1e-5) %>%
+    left_join(lsm_T63) %>%
+    mutate(cos.lat = cos(lat * pi / 180)) %>%
+    rename(Case = case) %>%
+    group_by(Case, lsm) %>%
+    summarize(warm.frac.rain = sum(warm.frac.rain * cos.lat, na.rm = TRUE) / sum(cos.lat),
+              warm.frac.drizzle = sum(warm.frac.drizzle * cos.lat, na.rm = TRUE) / sum(cos.lat)## ,
+              ## n = n()
+              ) %>%
+    ungroup() 
+
+df.precip.landsea.bias <- df.precip.landsea %>%
+    group_by(lsm) %>% 
+    mutate(warm.frac.drizzle.bias = warm.frac.drizzle - warm.frac.drizzle[Case == "Satellite"],
+           warm.frac.rain.bias = warm.frac.rain - warm.frac.rain[Case == "Satellite"],
+           warm.frac.drizzle.bias.delta = warm.frac.drizzle.bias - warm.frac.drizzle.bias[Case == "Reference"],
+           warm.frac.rain.bias.delta = warm.frac.rain.bias - warm.frac.rain.bias[Case == "Reference"]) %>%
+    ungroup()
+
+@ 
+
+\begin{figure}
+  \centering
+  <<summary-prp-ocean,dev='tikz',fig.width=6,fig.height=6.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+  
+  df.summary.prp <- full_join(df.prp.global, df.precip.landsea.bias, by = "Case") %>%
+      filter(!is.na(F.LWP.ratio),
+             !is.na(warm.frac.rain.bias)) %>%
+      filter(Case != "Satellite") %>%
+      mutate(Rain = warm.frac.rain.bias, Drizzle = warm.frac.drizzle.bias) %>%
+      mutate(Tuning = factor(ifelse(grepl("Q", Case),  "$Q_\\text{aut}$ tuning",
+                             ifelse(grepl("Reference", Case), "Reference",
+                             ifelse(grepl("r_e", Case), "$r_e$ tuning", ""))),
+                             levels = c("$Q_\\text{aut}$ tuning", "Reference", "$r_e$ tuning"),
+                             ordered = TRUE)) %>%
+      arrange(Tuning) %>%
+      gather(Intensity, bias, Rain, Drizzle) %>%
+      mutate(Intensity = factor(Intensity, levels = c("Rain", "Drizzle"), ordered = TRUE))
+
+  ## for annotations, we need to know the F_L/F_N values and the left-most and right-most bias
+  df.annot <- df.summary.prp %>%
+      filter(Tuning != "Reference") %>% 
+      spread(Intensity, bias) %>%
+      mutate(position = max(Rain, Drizzle) + 0.01) %>% ## position is where the label ends
+      group_by(Case, lsm) %>% 
+      mutate(endpoint = min(Rain, Drizzle)) %>% ## endpoint is where the connecting line ends
+      ungroup() 
+
+  df.arrows <- df.summary.prp %>%
+      group_by(lsm) %>% 
+      filter(Intensity == "Rain") %>% ## to get rid of duplicates
+      mutate(arrow.start = F.LWP.ratio[Tuning == "Reference"]) %>%
+      filter(F.LWP.ratio == max(F.LWP.ratio) | F.LWP.ratio == min(F.LWP.ratio)) %>%
+      mutate(arrow.end = F.LWP.ratio) %>%
+      mutate(label = c("Decreasing $Q_\\text{aut}$", "Increasing $r_e$")) %>%
+      ungroup()
+
+  hollow_arrow <- function(df, width, head, trunc) {
+      width <- 0.5 * width
+      ddply(df, ~ Tuning + lsm, function(df) {
+          with(df, data.frame(lsm = lsm,
+                              x = c(arrow.start + sign(arrow.end - arrow.start) * trunc, arrow.end - sign(arrow.end - arrow.start) * head, arrow.end - sign(arrow.end - arrow.start) * head, arrow.end, arrow.end - sign(arrow.end - arrow.start) * head, arrow.end - sign(arrow.end - arrow.start) * head, arrow.start + sign(arrow.end - arrow.start) * trunc, arrow.start + sign(arrow.end - arrow.start) * trunc),
+                              y = c(-width, -width, -2 * width, 0, 2 * width, width, width, -width)))
+      })
+  }
+  
+  df.summary.prp %>%
+      ggplot(aes(y = bias, x = F.LWP.ratio)) +
+      ## start with annotations:
+      geom_vline(aes(xintercept = arrow.start), df.arrows, lwd = 0.5, lty = "dashed", col = "darkgrey", show.legend = FALSE) +
+      ## geom_segment(aes(x = F.LWP.ratio, y = position + 2e-3, xend = F.LWP.ratio, yend = endpoint), df.annot %>% filter(Tuning == "Reference"), color = "black", lwd = 0.5) +
+      geom_segment(aes(x = F.LWP.ratio, y = position - 2e-3, xend = F.LWP.ratio, yend = endpoint), df.annot %>% filter(Tuning != "Reference"), color = "darkgrey", lwd = 0.25) +
+      geom_text(aes(x = F.LWP.ratio, y = position, label = Case, color = Tuning), df.annot, hjust = 0, vjust = 0.5, size = 3, label.r = unit(0, "mm"), fill = "darkgrey", show.legend = FALSE) +
+      ## geom_segment(aes(x = arrow.start, y = -0.025, xend = arrow.end, yend = -0.025, color = Tuning), df.arrows, arrow = arrow(length = unit(0.03, "npc")), lineend = "round", linejoin = "bevel", lwd = 10, alpha = 0.5, show.legend = FALSE) +
+      geom_polygon(aes(x = x, y = y + 0.275, color = Tuning, fill = Tuning), hollow_arrow(df.arrows, 0.015, 0.075, 0.005), show.legend = FALSE, alpha = 1e-1) +
+      geom_text(aes(x = (3 * arrow.start + 2 * arrow.end) / 5, y = 0.275, label = label, color = Tuning), df.arrows, hjust = 0.5, vjust = 0.5, size = 3.5, angle = 90, show.legend = FALSE) +
+      facet_grid(lsm ~ .) +
+      ## finally get around to the actual plot
+      geom_path(aes(lty = Intensity, group = Intensity), lwd = 1.5) +
+      geom_point(aes(shape = Tuning, col = Tuning), size = 3.5) + 
+      scale_color_manual(values = brewer.pal(3, "Dark2")[c(2,1,3)], aesthetics = c("color", "fill")) +
+      coord_flip(xlim = c(0.855, 1.265), ylim = c(-0.01, 0.2975), expand = FALSE) +
+      labs(y = "Precipitation frequency bias ($\\longleftarrow$ better agreement with satellite)",
+           x = "Normalized liquid-water path adjustment") +
+      theme_bw() +
+      theme(legend.position = c(0.15, 0.775),
+            legend.background = element_rect(fill=alpha("white", 0)))
+
+  @
+  \caption{}
+  \label{fig:summary-ocean}
+\end{figure}
+
+\clearpage
+
+\begin{figure*}
+  \centering
+  
+  <<Flwp-metrics,dev='tikz',fig.width=6.27,fig.height=5.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='asis'>>=
+  
+  bind_rows(df.summary.prp %>%
+            mutate(group = "$Q_\\text{aut},r_e$",
+                   panel = "$Q_\\text{aut},r_e$"),
+            df.summary.beta %>%
+            mutate(group = "$\\beta$",
+                   panel = "$\\alpha,\\beta$"),
+            df.summary.alpha %>%
+            mutate(group = "$\\alpha$",
+                   panel = "$\\alpha,\\beta$")) %>%
+      mutate(Tuning = factor(gsub("(.*) tuning", "\\1", as.character(Tuning)),
+                             levels = c("$Q_\\text{aut}$",
+                                        "Reference", "$r_e$",
+                                        "$\\alpha$",
+                                        "$\\beta$"), ordered = TRUE),
+             panel = factor(sprintf("%s tuning", panel),
+                            levels = c("$Q_\\text{aut},r_e$ tuning",
+                                       "$\\alpha,\\beta$ tuning"))) %>%
+      mutate(F.LWP.LWP = -LWP / xlvi,
+             F.LWP.swcre = 1e2 * LWP / swcre) %>%
+      gather(normalization, F.LWP, F.LWP.LWP, F.LWP.swcre) %>%
+      mutate(normalization = revalue(normalization,
+                                     c(F.LWP.LWP = "$-F_{\\lwp}/\\lwp$~(W~kg$^{-1}$)",
+                                       F.LWP.swcre = "$F_{\\lwp}/\\mathcal{S}_c$~(\\%)"))) %>%
+      filter(F.LWP < 15) %>% 
+      ## arrange(Tuning) %>%
+      ggplot(aes(bias, F.LWP, lty = Intensity, group = paste(Intensity, group))) +
+      geom_point(aes(col = Tuning, shape = Tuning), size = 2) +
+      geom_path() +
+      scale_color_manual(values = brewer.pal(5, "Dark2")[c(2,1,3:5)]) +
+      facet_grid(normalization ~ panel, scales = "free_y", switch = "y") +
+      theme_bw() +
+      labs(x = "$f_\\text{warm}$ bias", y = "") +
+      theme(axis.title.y = element_blank(),
+            legend.position = "bottom", legend.box = "horizontal",
+            strip.placement = "outside", strip.background.y = element_blank())
+
+  @
+  
+  \caption{}
+  \label{fig:Flwp-metrics}
+\end{figure*}
+
+\clearpage
+
+\begin{figure}
+  \centering
+  <<corrs-surf-ecdf-thresh,dev='tikz',fig.width=6.25,fig.height=4.5,out.width='\\textwidth',message=FALSE,cache=TRUE,echo=FALSE,results='hide'>>=
+  get.cosp.echam(4) %>%
+      ungroup() %>%
+      dplyr::mutate(dbze.max = replace(dbze.max, dbze.max < -1e29, NA)) %>%
+      mutate(dbze.max = cut(dbze.max, c(-50, -15, 0, 25), c("cloud", "drizzle", "rain"))) %>%
+      filter(!is.na(dbze.max),
+             aprl * 24 * 3600 > 1e-10) %>%
+      ggplot(aes(x = pmax(aprl * 24 * 3600, 1e-27), col = dbze.max)) +
+      stat_ecdf(n = 1e4, lwd = 1.2) +
+      scale_x_log10(labels = tikz_sanitize) +
+      coord_cartesian(xlim = c(1e-3, 2e2)) +
+      geom_vline(xintercept = c(0.01, 0.1, 1) * 24, lty = "dotted", col = "grey", lwd = 1.2) +
+      scale_color_brewer("Radar simulator column classification", palette = "Set2") +
+      labs(x = "$P$ (mm~day$^{-1}$)", y = "CDF$(P)$") +
+      theme_bw() +
+      theme(legend.position = "bottom", legend.box = "horizontal") +
+      guides(fill = guide_legend(direction = "horizontal",
+                                 nrow = 1,
+                                 label.position = "bottom", label.hjust = 0.5,
+                                 title.position = "left", title.vjust = 1)) 
+  @ 
+  \caption{}
+  \label{fig:z-pr}
+\end{figure}
+
+\clearpage
+
+\begin{table}
+  \caption{}
+  \label{tab:erf}
+  \begin{tabular}{l|rr|r|rrrr}
+    \hline\hline
+    & \multicolumn{2}{c|}{ERF contributions (W~m$^{-2}$)}
+    & %% Normalized adjustment
+    & \multicolumn{4}{c}{State variables}\\
+    <<erf-tbl-prp,dev='tikz',fig.width=12,fig.height=5,out.width='\\textwidth',message=FALSE,cache=FALSE,echo=FALSE,results='asis'>>=      
+    df.prp.global %>%
+        mutate(xlvi = as.integer(round(xlvi * 1e3)),
+               xivi = xivi * 1e3) %>% 
+        rename("$R_\\text{TOA}$~(W~m$^{-2}$)" = rtot,
+               "$\\mathcal{L}$~(g~m$^{-2}$)" = xlvi,
+               "$\\mathcal{I}$~(g~m$^{-2}$)" = xivi,
+               "$\\mathcal{S}_c$~(W~m$^{-2}$)" = swcre) %>%
+        rename("$F_{\\lwp}/F_{\\cdnc}$" = F.LWP.ratio,
+               "$F_{\\lwp}$" = LWP,
+               "$F_{\\cdnc}$" = CDNC) %>%
+        select(-c(albedo, ptot, srad0)) %>% 
+        xtable::xtable() %>%
+        print(., sanitize.colnames.function = identity,
+              sanitize.text.function = identity,
+              floating = FALSE,
+              only.contents = TRUE,
+              math.style.negative = TRUE,
+              math.style.exponents = TRUE,
+              include.rownames = FALSE,
+              include.colnames = TRUE,
+              NA.string = "\\alert{0}",
+              format.args = list(flag = "#"),
+              hline.after = c(rep(-1, 2), 0, rep(nrow(.), 2)))
+
+    @
+  \end{tabular}
+\end{table}
+
+\clearpage
+
+\begin{table}
+  \caption{}
+  \label{tab:erf-prp-alpha}
+  \begin{tabular}{l|rr|r|rrr}
+    \hline\hline
+    & \multicolumn{2}{c|}{ERF contributions (W~m$^{-2}$)}
+    &
+    & \multicolumn{3}{c}{State variables}\\
+    <<erf-tbl-alpha,dev='tikz',fig.width=12,fig.height=5,out.width='\\textwidth',message=FALSE,cache=FALSE,echo=FALSE,results='asis'>>=
+    df.prp.global.alpha %>%
+        mutate(xlvi = as.integer(round(xlvi * 1e3))) %>% 
+        rename("$R_\\text{TOA}$~(W~m$^{-2}$)" = rtot,
+               "$\\mathcal{L}$~(g~m$^{-2}$)" = xlvi,
+               "$\\mathcal{S}_c$~(W~m$^{-2}$)" = swcre) %>%
+        rename("$F_{\\lwp}/F_{\\cdnc}$" = F.LWP.ratio,
+               "$F_{\\lwp}$" = LWP,
+               "$F_{\\cdnc}$" = CDNC) %>%
+        select(-c(albedo, ptot, srad0)) %>% 
+        xtable::xtable() %>%
+        print(., sanitize.colnames.function = identity,
+              sanitize.text.function = identity,
+              floating = FALSE,
+              only.contents = TRUE,
+              math.style.negative = TRUE,
+              math.style.exponents = TRUE,
+              include.rownames = FALSE,
+              include.colnames = TRUE,
+              NA.string = "\\alert{0}",
+              format.args = list(flag = "#"),
+              hline.after = c(rep(-1, 2), 0, rep(nrow(.), 2)))
+    @
+  \end{tabular}
+\end{table}
+
+\clearpage
+
+\begin{table}
+  \caption{}
+  \label{tab:erf-beta}
+  \begin{tabular}{l|rr|r|rrr}
+    \hline\hline
+    & \multicolumn{2}{c|}{ERF contributions (W~m$^{-2}$)}
+    & %% Normalized adjustment
+    & \multicolumn{3}{c}{State variables}\\
+    <<erf-tbl-beta,dev='tikz',fig.width=12,fig.height=5,out.width='\\textwidth',message=FALSE,cache=FALSE,echo=FALSE,results='asis'>>=
+    
+    df.prp.global.beta %>%
+        mutate(xlvi = as.integer(round(xlvi * 1e3))) %>% 
+        rename("$R_\\text{TOA}$~(W~m$^{-2}$)" = rtot,
+               "$\\mathcal{L}$~(g~m$^{-2}$)" = xlvi,
+               "$\\mathcal{S}_c$~(W~m$^{-2}$)" = swcre) %>%
+        rename("$F_{\\lwp}/F_{\\cdnc}$" = F.LWP.ratio,
+               "$F_{\\lwp}$" = LWP,
+               "$F_{\\cdnc}$" = CDNC) %>%
+        select(-c(albedo, ptot, srad0)) %>% 
+        xtable::xtable() %>%
+        print(., sanitize.colnames.function = identity,
+              sanitize.text.function = identity,
+              floating = FALSE,
+              only.contents = TRUE,
+              math.style.negative = TRUE,
+              math.style.exponents = TRUE,
+              include.rownames = FALSE,
+              include.colnames = TRUE,
+              NA.string = "\\alert{0}",
+              format.args = list(flag = "#"),
+              hline.after = c(rep(-1, 2), 0, rep(nrow(.), 2)))
+
+    @
+  \end{tabular}
+\end{table}
+
+\end{document}
